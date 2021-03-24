@@ -1,4 +1,5 @@
-import sklearn
+from sklearn import svm
+import sklearn.model_selection
 import numpy as np
 import os
 import matplotlib as mpl
@@ -122,24 +123,70 @@ def clean_outcomes(df):
     df = df[df["survived"].notna()]
     return df
 
+def rushed_drops(df):
+    reduced = df.drop(["symptoms", "city", "ID", "outcome"], axis=1)
+    reduced = reduced[reduced["age"].notna()]
+    reduced = reduced[reduced["sex"].notna()]
+    reduced = reduced[reduced["province"].notna()]
+    reduced = reduced[reduced["date_confirmation"].notna()]
+    return reduced
+
+def fix_age(row):
+    current = row["age"]
+    replace = np.nan
+
+    if "-" in current:
+        sp = current.split("-")
+        lower = int(sp[0])
+        higher = lower
+
+        if len(sp) > 1:
+            if len(sp[1]) != 0:
+                higher = int(sp[1])
+
+        avg = (lower + higher) // 2
+        replace = avg
+    else:
+        replace = int(float(current))
+
+    return replace
+
+def fix_ages(df):
+    df["age"] = df.apply(fix_age, axis=1)
+    return df
+
+
 def main():
     # df = load_data()
     # df = clean_and_reduce(df)
-    # df.to_csv("reduced.csv")
+    # df.to_csv("reduced.csv", index=False)
     # summarise(df)
 
-    df = pd.read_csv("reduced.csv")
+    # df = pd.read_csv("reduced.csv")
     # df = pd.read_csv("cleaned.csv")
     # summarise(df)
+    # rushed = rushed_drops(df)
+    # summarise(rushed)
+    # rushed.to_csv("rushed.csv", index=False)
     # summarise_columns(df)
-    df = clean_outcomes(df)
-    summarise_columns(df)
-    #df.to_csv("cleaned.csv")
-    #summarise(df)
-    #summarise_columns(df)
+    # df = clean_outcomes(df)
+    # summarise_columns(df)
+    # df.to_csv("cleaned.csv", index=False)
+    # summarise(df)
+    # summarise_columns(df)
     # basic_analysis(df)
     # after_analysis_clean(df)
     # summarise(df)
-    # #summarise(df)
+
+    df = pd.read_csv("rushed.csv")
+    # df = fix_ages(df)
+    # df.to_csv("rushed.csv", index=False)
+    # summarise(df)
+    # summarise_columns(df)
+    # ages = df["age"].unique()
+    # print(ages)
+
+    train, test = sklearn.model_selection.train_test_split(df, test_size=0.2)
+    print(len(train), len(test))
 
 main()
