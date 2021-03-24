@@ -9,6 +9,35 @@ import json
 def load_data():
     return pd.read_csv("./latestdata/latestdata.csv")
 
+# Anything not in this list will be removed from the dataset
+# True = alive, False = dead
+outcome_lookup = {
+    "hospitalized": True,
+    "deceased": False,
+    "recovered": True,
+    "died": False,
+    "under treatment": True,
+    "receiving treatment": True,
+    "alive": True,
+    "stable condition": True,
+    "stable": True,
+    "discharge": True,
+    "discharged": True,
+    "death": False,
+    "dead": False,
+    "released from quarantine": True,
+    "critical condition, intubated as of 14.False2.2False2False": True,
+    "discharged from hospital": True,
+    "symptoms only improved with cough. currently hospitalized for follow-up.": True,
+    "critical condition": True,
+    "severe": True,
+    "not hospitalized": True,
+    "treated in an intensive care unit (14.False2.2False2False)": True,
+    "unstable": True,
+    "recovering at home False3.False3.2False2False": True,
+    "severe illness": True
+}
+
 def clean_and_reduce(df):
     # First remove the columns that have virtually no data or aren't of any use to my analysis
     # Analysis of the data showed that country_new was not useful
@@ -22,10 +51,14 @@ def clean_and_reduce(df):
     reduced = reduced[reduced["admin_id"].notna()]
     reduced = reduced[reduced["country"].notna()]
 
-    reduced["travel_history_binary"] = reduced.apply(compute_travel_binary, axis=1)
+    reduced["travel_history_binary"] = reduced.apply(clean_travel_binary, axis=1)
     reduced = reduced[reduced["travel_history_binary"].notna()]
     # Now we can remove the travel_history_dates and travel_history_location
     reduced = reduced.drop(["travel_history_dates", "travel_history_location"], axis=1)
+    reduced = reduced[reduced["outcome"].notna()]
+    reduced = reduced.drop(["date_death_or_discharge", "location", "admin3", "admin2", "admin1", "lives_in_Wuhan", "date_onset_symptoms", "date_admission_hospital"], axis=1)
+
+    reduced = reduced[reduced["outcome"].str.lower().isin(outcome_lookup)]
     return reduced
 
 def basic_analysis(df):
@@ -50,7 +83,7 @@ def basic_analysis(df):
 
     pass
 
-def compute_travel_binary(row):
+def clean_travel_binary(row):
     if pd.notna(row["travel_history_binary"]):
         return row["travel_history_binary"]
 
@@ -63,12 +96,31 @@ def compute_travel_binary(row):
     return True
 
 def summarise(df):
-    print("Rows", df.shape[0], "Columns", df.shape[1])
     print(df.info())
     print(df.isna().sum())
+    print("Rows", df.shape[0], "Columns", df.shape[1])
+
+def summarise_columns(df):
+    for column in df.columns:
+        print(column)
+        print(df[column].value_counts(normalize=True, dropna=False))
+        print("------------")
 
 def after_analysis_clean(df):
     pass
+
+def clean_outcome(row):
+    current = row["outcome"].lower()
+
+    if current not in outcome_lookup:
+        return np.nan
+
+    return outcome_lookup[current]
+
+def clean_outcomes(df):
+    df["survived"] = df.apply(clean_outcome, axis=1)
+    df = df[df["survived"].notna()]
+    return df
 
 def main():
     # df = load_data()
@@ -77,7 +129,14 @@ def main():
     # summarise(df)
 
     df = pd.read_csv("reduced.csv")
-    summarise(df)
+    # df = pd.read_csv("cleaned.csv")
+    # summarise(df)
+    # summarise_columns(df)
+    df = clean_outcomes(df)
+    summarise_columns(df)
+    #df.to_csv("cleaned.csv")
+    #summarise(df)
+    #summarise_columns(df)
     # basic_analysis(df)
     # after_analysis_clean(df)
     # summarise(df)
