@@ -1,4 +1,5 @@
-from sklearn import svm
+from sklearn import svm, tree
+from sklearn.neighbors import KNeighborsClassifier
 import sklearn.model_selection
 import sklearn.metrics
 import sklearn.pipeline
@@ -10,6 +11,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import json
 import datetime as dt
+import graphviz
+from sklearn.neural_network import MLPClassifier
 
 def load_data():
     return pd.read_csv("./latestdata/latestdata.csv")
@@ -199,7 +202,7 @@ def prep_ml():
 
     return training_no_labels, training_labels, test_no_labels, test_labels
 
-def basic_ml():
+def more_cleaning():
     # df = load_data()
     # df = clean_and_reduce(df)
     # df.to_csv("reduced.csv", index=False)
@@ -220,18 +223,178 @@ def basic_ml():
     # basic_analysis(df)
     # after_analysis_clean(df)
     # summarise(df)
+    pass
 
+def svm_basic_ml():
     training_no_labels, training_labels, test_no_labels, test_labels = prep_ml()
 
-    model = sklearn.pipeline.make_pipeline(sklearn.preprocessing.StandardScaler(), svm.SVC(class_weight='balanced'))
-    print("Training")
+    ss = sklearn.preprocessing.StandardScaler()
+    training_no_labels = ss.fit_transform(training_no_labels)
+    test_no_labels = ss.transform(test_no_labels)
+
+    model = svm.SVC(C=10, class_weight='balanced', gamma=1)
+    print("Training SVM")
+    model.fit(training_no_labels, training_labels)
+    print("Trained")
+
+    print("Train score", model.score(training_no_labels, training_labels))
+    print("Test score", model.score(test_no_labels, test_labels))
+
+    print("Predicting")
+    predicted = model.predict(test_no_labels)
+    print("Predicted")
+    metrics(predicted, test_labels, model, test_no_labels)
+
+def svm_grid_search():
+    param_grid = {'C': [0.1,1, 10, 100], 'gamma': [1,0.1,0.01,0.001],'kernel': ['sigmoid', 'rbf']}
+    grid = sklearn.model_selection.GridSearchCV(svm.SVC(class_weight="balanced"), param_grid, refit=True, verbose=2, n_jobs=-1)
+    X_train, y_train, X_test, y_test = prep_ml()
+    grid.fit(X_train, y_train)
+    print(grid.best_estimator_)
+    grid_predictions = grid.predict(X_test)
+    print(sklearn.metrics.confusion_matrix(y_test,grid_predictions))
+    print(sklearn.metrics.classification_report(y_test,grid_predictions))#Output
+
+def kn_basic_ml():
+    training_no_labels, training_labels, test_no_labels, test_labels = prep_ml()
+
+    ss = sklearn.preprocessing.StandardScaler()
+    training_no_labels = ss.fit_transform(training_no_labels)
+    test_no_labels = ss.transform(test_no_labels)
+
+    model = KNeighborsClassifier(metric="manhattan", n_neighbors=11, weights="uniform")
+    print("Training KNC")
     model.fit(training_no_labels, training_labels)
     print("Trained")
 
     print("Predicting")
     predicted = model.predict(test_no_labels)
     print("Predicted")
+    metrics(predicted, test_labels, model, test_no_labels)
 
+def kn_grid_search():
+    param_grid = {
+        "n_neighbors": [3, 5, 7, 11, 13],
+        "weights": ["uniform", "distance"],
+        "metric": ["euclidean", "manhattan"]
+    }
+
+    training_no_labels, training_labels, test_no_labels, test_labels = prep_ml()
+
+    ss = sklearn.preprocessing.StandardScaler()
+    training_no_labels = ss.fit_transform(training_no_labels)
+    test_no_labels = ss.transform(test_no_labels)
+
+    gs = sklearn.model_selection.GridSearchCV(KNeighborsClassifier(), param_grid, verbose=2, n_jobs=-1)
+    gs_res = gs.fit(training_no_labels, training_labels)
+
+    print("BEST SCORE")
+    print(gs_res.best_score_)
+    print()
+
+    print("BEST ESTIMATOR")
+    print(gs_res.best_estimator_)
+    print()
+
+    print("BEST PARAMS")
+    print(gs_res.best_params_)
+    print()
+
+def dt_basic_ml():
+    training_no_labels, training_labels, test_no_labels, test_labels = prep_ml()
+
+    ss = sklearn.preprocessing.StandardScaler()
+    training_no_labels = ss.fit_transform(training_no_labels)
+    test_no_labels = ss.transform(test_no_labels)
+
+    model = tree.DecisionTreeClassifier()
+    print("Training DT")
+    model.fit(training_no_labels, training_labels)
+    print("Trained")
+
+    print("Predicting")
+    predicted = model.predict(test_no_labels)
+    print("Predicted")
+    dt_tree = tree.export_graphviz(model, out_file="dt_tree.dot")
+    graph = graphviz.Source(dt_tree)
+    # graph.render("dt_tree")
+    metrics(predicted, test_labels, model, test_no_labels)
+
+def dt_grid_search():
+    param_grid = {
+        "max_depth": [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 20, 30, 40, 50, 75, 100, 120, 150],
+        "criterion": ["gini", "entropy"]
+    }
+
+    training_no_labels, training_labels, test_no_labels, test_labels = prep_ml()
+
+    ss = sklearn.preprocessing.StandardScaler()
+    training_no_labels = ss.fit_transform(training_no_labels)
+    test_no_labels = ss.transform(test_no_labels)
+
+    gs = sklearn.model_selection.GridSearchCV(tree.DecisionTreeClassifier(), param_grid, verbose=2, n_jobs=-1)
+    gs_res = gs.fit(training_no_labels, training_labels)
+
+    print("BEST SCORE")
+    print(gs_res.best_score_)
+    print()
+
+    print("BEST ESTIMATOR")
+    print(gs_res.best_estimator_)
+    print()
+
+    print("BEST PARAMS")
+    print(gs_res.best_params_)
+    print()
+
+def nn_basic_ml():
+    training_no_labels, training_labels, test_no_labels, test_labels = prep_ml()
+
+    ss = sklearn.preprocessing.StandardScaler()
+    training_no_labels = ss.fit_transform(training_no_labels)
+    test_no_labels = ss.transform(test_no_labels)
+
+    model = MLPClassifier(solver='adam', alpha=1e-4, hidden_layer_sizes=(5, 2), activation="tanh")
+    print("Training NN")
+    model.fit(training_no_labels, training_labels)
+    print("Trained")
+
+    print("Predicting")
+    predicted = model.predict(test_no_labels)
+    print("Predicted")
+    metrics(predicted, test_labels, model, test_no_labels)
+
+def nn_grid_search():
+    param_grid= {
+        'hidden_layer_sizes': [(5, 2), (50,50,50), (50,100,50), (100,)],
+        'activation': ['tanh', 'relu'],
+        'solver': ['sgd', 'adam', 'lbfgs'],
+        'alpha': [0.0001, 0.05],
+        'learning_rate': ['constant','adaptive'],
+    }
+
+    training_no_labels, training_labels, test_no_labels, test_labels = prep_ml()
+
+    ss = sklearn.preprocessing.StandardScaler()
+    training_no_labels = ss.fit_transform(training_no_labels)
+    test_no_labels = ss.transform(test_no_labels)
+
+    gs = sklearn.model_selection.GridSearchCV(MLPClassifier(max_iter=100), param_grid, verbose=2, n_jobs=-1)
+    gs_res = gs.fit(training_no_labels, training_labels)
+
+    print("BEST SCORE")
+    print(gs_res.best_score_)
+    print()
+
+    print("BEST ESTIMATOR")
+    print(gs_res.best_estimator_)
+    print()
+
+    print("BEST PARAMS")
+    print(gs_res.best_params_)
+    print()
+
+def metrics(predicted, test_labels, model, test_no_labels):
     correct = 0
     predicted_survived = 0
 
@@ -252,6 +415,8 @@ def basic_ml():
     print("Predicted Died", len(predicted) - predicted_survived)
     print()
 
+    #SVC(C=0.1, gamma=1, kernel='sigmoid')
+    #SVC(C=10, class_weight='balanced', gamma=1)
     confusion_matrix = sklearn.metrics.confusion_matrix(test_labels, predicted)
     tn, fp, fn, tp = confusion_matrix.ravel()
 
@@ -295,6 +460,14 @@ def basic_ml():
     plt.show()
 
 def main():
-    basic_ml()
+    # svm_basic_ml()
+    # svm_grid_search()
+    # kn_basic_ml()
+    # kn_grid_search()
+    # dt_basic_ml()
+    # dt_grid_search()
+    nn_basic_ml()
+    # nn_grid_search()
+    pass
 
 main()
