@@ -1,11 +1,15 @@
 from sklearn import svm
 import sklearn.model_selection
+import sklearn.metrics
+import sklearn.pipeline
+import sklearn.preprocessing
 import numpy as np
 import os
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import pandas as pd
 import json
+import datetime as dt
 
 def load_data():
     return pd.read_csv("./latestdata/latestdata.csv")
@@ -155,8 +159,47 @@ def fix_ages(df):
     df["age"] = df.apply(fix_age, axis=1)
     return df
 
+def prep_ml():
+    df = pd.read_csv("rushed.csv")
+    # df = fix_ages(df)
+    # df.to_csv("rushed.csv", index=False)
+    # df["sex"] = df["sex"].astype("category")
+    df["province"] = df["province"].astype("category")
+    df["country"] = df["country"].astype("category")
+    df["geo_resolution"] = df["geo_resolution"].astype("category")
+    df["date_confirmation"] = pd.to_datetime(df["date_confirmation"]).map(dt.datetime.toordinal)
+    # summarise(df)
+    # summarise_columns(df)
+    # ages = df["age"].unique()
+    # print(ages)
 
-def main():
+    ohe_sex = pd.get_dummies(df.sex, prefix="sex")
+    df = pd.concat([df, ohe_sex], axis=1)
+    df = df.drop("sex", axis=1)
+
+    ohe_country = pd.get_dummies(df.country, prefix="country")
+    df = pd.concat([df, ohe_country], axis=1)
+    df = df.drop("country", axis=1)
+
+    df = df.drop("province", axis=1)
+    # ohe_province = pd.get_dummies(df.province, prefix="province")
+    # df = pd.concat([df, ohe_province], axis=1)
+    # df = df.drop("province", axis=1)
+    df = df.drop("geo_resolution", axis=1)
+
+    # summarise(df)
+
+    train, test = sklearn.model_selection.train_test_split(df, test_size=0.2, random_state=1828, shuffle=True)
+
+    training_no_labels = train.drop("survived", axis=1)
+    training_labels = train["survived"].copy()
+
+    test_no_labels = test.drop("survived", axis=1)
+    test_labels = test["survived"].copy()
+
+    return training_no_labels, training_labels, test_no_labels, test_labels
+
+def basic_ml():
     # df = load_data()
     # df = clean_and_reduce(df)
     # df.to_csv("reduced.csv", index=False)
@@ -178,15 +221,80 @@ def main():
     # after_analysis_clean(df)
     # summarise(df)
 
-    df = pd.read_csv("rushed.csv")
-    # df = fix_ages(df)
-    # df.to_csv("rushed.csv", index=False)
-    # summarise(df)
-    # summarise_columns(df)
-    # ages = df["age"].unique()
-    # print(ages)
+    training_no_labels, training_labels, test_no_labels, test_labels = prep_ml()
 
-    train, test = sklearn.model_selection.train_test_split(df, test_size=0.2)
-    print(len(train), len(test))
+    model = sklearn.pipeline.make_pipeline(sklearn.preprocessing.StandardScaler(), svm.SVC(class_weight='balanced'))
+    print("Training")
+    model.fit(training_no_labels, training_labels)
+    print("Trained")
+
+    print("Predicting")
+    predicted = model.predict(test_no_labels)
+    print("Predicted")
+
+    correct = 0
+    predicted_survived = 0
+
+    for i in range(len(predicted)):
+        match = predicted[i] == test_labels.iloc[i]
+        correct += match
+        predicted_survived += predicted[i]
+
+    incorrect = len(predicted) - correct
+
+    print("Metrics")
+    print()
+    print("Test Samples", len(predicted))
+    print("Correct", correct)
+    print("Incorrect", incorrect)
+    print("Accuracy", (correct / (correct + incorrect)) * 100)
+    print("Predicted Survive", predicted_survived)
+    print("Predicted Died", len(predicted) - predicted_survived)
+    print()
+
+    confusion_matrix = sklearn.metrics.confusion_matrix(test_labels, predicted)
+    tn, fp, fn, tp = confusion_matrix.ravel()
+
+    print("True Positives", tp)
+    print("False Positives", fp)
+    print("True Negatives", tn)
+    print("False Negatives", fn)
+    print()
+
+    tpr = tp / (tp + fn)
+    fpr = fp / (fp + tn)
+
+    ppv = tp / (tp + fp)
+    npv = tn / (tn + fn)
+
+    tnr = tn / (tn + fp)
+    fnr = fn / (tp + fn)
+    fdr = fp / (tp + fp)
+
+    print("True Positive Rate (Sens)", tpr)
+    print("False Positive Rate (Spec)", fpr)
+    # ps = sklearn.metrics.precision_score(test_labels, predicted)
+    # print("Precision Score", ps)
+    print("Positive Predictive Value (PPV / Precision)", ppv)
+    print("Negative Predictive Value (NPV)", npv)
+    print("True Negative Rate", tnr)
+    print("False Negative Rate", fnr)
+    print("False Discovery Rate", fdr)
+    print()
+
+    f1_score = sklearn.metrics.f1_score(test_labels, predicted)
+    fhalf_score = sklearn.metrics.fbeta_score(test_labels, predicted, beta=0.5)
+    f2_score = sklearn.metrics.fbeta_score(test_labels, predicted, beta=2)
+    print("F1 Score", f1_score)
+    print("F0.5 Score", fhalf_score)
+    print("F2 Score", f2_score)
+    print()
+
+    print("Plotting ROC...")
+    sklearn.metrics.plot_roc_curve(model, test_no_labels, test_labels)
+    plt.show()
+
+def main():
+    basic_ml()
 
 main()
