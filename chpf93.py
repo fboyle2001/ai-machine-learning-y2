@@ -51,11 +51,13 @@ def main():
     # raw_data = load_data()
     # df = reduce_data(raw_data)
     # df.to_csv("reduced.csv")
-    df = pd.read_csv("reduced.csv")
-
-    print(df.info())
-    print(df.isna().sum())
-    summarise_columns(df)
+    # df = pd.read_csv("reduced.csv")
+    #
+    # print(df.info())
+    # print(df.isna().sum())
+    # summarise_columns(df)
+    df = pd.read_csv("./latestdata/latestdata.csv", low_memory=False)
+    print(df["chronic_disease_binary"].value_counts(dropna=False))
 
 
 main()

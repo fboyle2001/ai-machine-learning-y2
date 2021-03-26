@@ -13,6 +13,7 @@ import json
 import datetime as dt
 import graphviz
 from sklearn.neural_network import MLPClassifier
+import math
 
 def load_data():
     return pd.read_csv("./latestdata/latestdata.csv")
@@ -243,7 +244,7 @@ def svm_basic_ml():
     print("Predicting")
     predicted = model.predict(test_no_labels)
     print("Predicted")
-    metrics(predicted, test_labels, model, test_no_labels)
+    metrics(predicted, test_labels, model, test_no_labels, training_labels, training_no_labels)
 
 def svm_grid_search():
     param_grid = {'C': [0.1,1, 10, 100], 'gamma': [1,0.1,0.01,0.001],'kernel': ['sigmoid', 'rbf']}
@@ -270,7 +271,7 @@ def kn_basic_ml():
     print("Predicting")
     predicted = model.predict(test_no_labels)
     print("Predicted")
-    metrics(predicted, test_labels, model, test_no_labels)
+    metrics(predicted, test_labels, model, test_no_labels, training_labels, training_no_labels)
 
 def kn_grid_search():
     param_grid = {
@@ -318,7 +319,7 @@ def dt_basic_ml():
     dt_tree = tree.export_graphviz(model, out_file="dt_tree.dot")
     graph = graphviz.Source(dt_tree)
     # graph.render("dt_tree")
-    metrics(predicted, test_labels, model, test_no_labels)
+    metrics(predicted, test_labels, model, test_no_labels, training_labels, training_no_labels)
 
 def dt_grid_search():
     param_grid = {
@@ -362,7 +363,7 @@ def nn_basic_ml():
     print("Predicting")
     predicted = model.predict(test_no_labels)
     print("Predicted")
-    metrics(predicted, test_labels, model, test_no_labels)
+    metrics(predicted, test_labels, model, test_no_labels, training_labels, training_no_labels)
 
 def nn_grid_search():
     param_grid= {
@@ -394,7 +395,7 @@ def nn_grid_search():
     print(gs_res.best_params_)
     print()
 
-def metrics(predicted, test_labels, model, test_no_labels):
+def metrics(predicted, test_labels, model, test_no_labels, training_labels, training_no_labels):
     correct = 0
     predicted_survived = 0
 
@@ -436,16 +437,29 @@ def metrics(predicted, test_labels, model, test_no_labels):
     fnr = fn / (tp + fn)
     fdr = fp / (tp + fp)
 
-    print("True Positive Rate (Sens)", tpr)
+    print("True Positive Rate (Sens / Recall)", tpr)
+    print("Verified Recall", sklearn.metrics.recall_score(test_labels, predicted))
     print("False Positive Rate (Spec)", fpr)
     # ps = sklearn.metrics.precision_score(test_labels, predicted)
     # print("Precision Score", ps)
     print("Positive Predictive Value (PPV / Precision)", ppv)
+    print("Verified Precision", sklearn.metrics.precision_score(test_labels, predicted))
     print("Negative Predictive Value (NPV)", npv)
     print("True Negative Rate", tnr)
     print("False Negative Rate", fnr)
     print("False Discovery Rate", fdr)
     print()
+
+    mcc = (tp * tn - fp * fn) / math.sqrt((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn))
+    print("MCC", mcc)
+    print("Verified MCC", sklearn.metrics.matthews_corrcoef(test_labels, predicted))
+    print()
+
+    ber = 0.5 * (fnr + fpr)
+    utility = 1 - ber
+
+    print("BER", ber)
+    print("Utility", utility)
 
     f1_score = sklearn.metrics.f1_score(test_labels, predicted)
     fhalf_score = sklearn.metrics.fbeta_score(test_labels, predicted, beta=0.5)
@@ -455,16 +469,23 @@ def metrics(predicted, test_labels, model, test_no_labels):
     print("F2 Score", f2_score)
     print()
 
+    print("SK classification_report")
+    print(sklearn.metrics.classification_report(test_labels, predicted))
+    print()
+
     print("Plotting ROC...")
-    sklearn.metrics.plot_roc_curve(model, test_no_labels, test_labels)
+    sklearn.metrics.plot_roc_curve(model, training_no_labels, training_labels, name="ROC TRAIN")
+    sklearn.metrics.plot_roc_curve(model, test_no_labels, test_labels, name="ROC TEST")
+    # https://towardsdatascience.com/evaluating-classifier-model-performance-6403577c1010
     plt.show()
 
 def main():
-    # svm_basic_ml()
+    svm_basic_ml()
     # svm_grid_search()
-    # kn_basic_ml()
+    kn_basic_ml()
     # kn_grid_search()
-    # dt_basic_ml()
+    # heavy overfitting
+    dt_basic_ml()
     # dt_grid_search()
     nn_basic_ml()
     # nn_grid_search()
