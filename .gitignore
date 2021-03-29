@@ -1,3 +1,4 @@
 *.csv
 *.tar
 @PaxHeader
+.ipynb_checkpoints/*

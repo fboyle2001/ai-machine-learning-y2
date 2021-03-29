@@ -69,7 +69,7 @@ df = df.drop(["travel_history_dates", "travel_history_location"], axis=1)
 
 df.info()
 
-# We now have 307150 / 307382 (increase of 143 records) with a travel_history_binary and I've dropped the travel_history_dates and travel_history_location columns
+# We now have 307150 / 307382 (increase of 93 records) with a travel_history_binary and I've dropped the travel_history_dates and travel_history_location columns
 # So drop all of those without a travel_history_binary now as we can't recover this
 
 df = df[df["travel_history_binary"].notna()]
